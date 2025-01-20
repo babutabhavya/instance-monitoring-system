@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.statusrequest.name }}
+  namespace: {{ .Values.service.statusrequest.namespace }}
+spec:
+  strategy: {}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.service.statusrequest.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.service.statusrequest.name }}
+    spec:
+      containers:
+        - name: {{ .Values.service.statusrequest.name }}
+          image: '{{ .Values.service.statusrequest.image.repository }}:{{ .Values.service.statusrequest.image.tag }}'
+          imagePullPolicy: {{ .Values.service.statusrequest.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.statusrequest.port }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.statussync.name }}
+  namespace: {{ .Values.service.statussync.namespace }}
+spec:
+  strategy: {}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.service.statussync.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.service.statussync.name }}
+    spec:
+      containers:
+        - name: {{ .Values.service.statussync.name }}
+          image: '{{ .Values.service.statussync.image.repository }}:{{ .Values.service.statussync.image.tag }}'
+          imagePullPolicy: {{ .Values.service.statussync.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.statussync.port }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: asia
+spec:
+  replicas: 1
+  strategy: {}
+  selector:
+    matchLabels:
+      app: nats
+  template:
+    metadata:
+      labels:
+        app: nats
+    spec:
+      containers:
+        - name: nats
+          image: nats:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4222
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: asia
+spec:
+  strategy: {}
+  serviceName: "mongodb"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: "bitnami/mongodb:6.0.5"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGODB_ROOT_PASSWORD
+              value: "{{ .Values.mongodb.auth.rootPassword }}"
+            - name: MONGODB_USERNAME
+              value: "{{ .Values.mongodb.auth.username }}"
+            - name: MONGODB_PASSWORD
+              value: "{{ .Values.mongodb.auth.password }}"
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 27017
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 27017
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.mongodb.persistence.size }}
+
+
+{{- range $region, $regionConfig := .Values.service.instances }}
+  {{- range $i := until (int $regionConfig.count) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "instance-to-be-monitored-{{ $region }}-{{ add $i 1 }}"
+  namespace: {{ $region }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "instance-to-be-monitored-{{ $region }}-{{ add $i 1 }}"
+  template:
+    metadata:
+      labels:
+        app: "instance-to-be-monitored-{{ $region }}-{{ add $i 1 }}"
+    spec:
+      containers:
+        - name: "instance-to-be-monitored-{{ $region }}-{{ add $i 1 }}"
+          image: '{{ $regionConfig.image.repository }}:{{ $regionConfig.image.tag }}'
+          imagePullPolicy: {{ $regionConfig.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $regionConfig.port }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ $regionConfig.port }}
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ $regionConfig.port }}
+              scheme: HTTP
+            initialDelaySeconds: 5
+            timeoutSeconds: 1
+  {{- end }}
+{{- end }}
+---

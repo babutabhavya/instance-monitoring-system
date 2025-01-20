@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats
+  namespace: asia
+spec:
+  selector:
+    app: nats
+  ports:
+    - name: nats-port
+      port: 4222
+      targetPort: 4222
+    - name: nats-http-port
+      port: 8222
+      targetPort: 8222
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: asia
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+      nodePort: 30017
+  type: NodePort
+
+---
+
+{{- $nodePortBase := 30001 }}
+
+{{- range $region, $regionConfig := .Values.service.instances }}
+  {{- range $i := until (int $regionConfig.count) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "instance-to-be-monitored-{{ $region }}-{{ add $i 1 }}-service"
+  namespace: {{ $region | default "asia" }}
+spec:
+  selector:
+    app: "instance-to-be-monitored-{{ $region }}-{{ add $i 1 }}"
+  ports:
+    - name: nordport
+      port: {{ $regionConfig.port }}
+      targetPort: {{ $regionConfig.port }}
+      nodePort: {{ $nodePortBase }}
+  type: NodePort
+  {{- $nodePortBase = add $nodePortBase 1 }}
+  {{- end }}
+{{- end }}

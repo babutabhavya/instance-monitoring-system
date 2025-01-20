@@ -1,0 +1,68 @@
+namespaces:
+  asia:
+    externalPort: 30001
+  europe:
+    externalPort: 30002
+  us:
+    externalPort: 30003
+
+nats:
+  enabled: true
+  replicas: 1
+  ports:
+    nats: 4222
+    http: 8222
+  auth:
+    enabled: false
+
+mongodb:
+  auth:
+    rootPassword: changeme
+    username: root
+    password: changeme
+  persistence:
+    enabled: true
+    size: 8Gi
+  replicaSet:
+    enabled: false
+
+service:
+  statusrequest:
+    name: status-request-service
+    namespace: asia
+    port: 8080
+    image:
+      repository: "babutabhavya/status-request-service"
+      tag: latest
+      pullPolicy: Always
+  statussync:
+    name: "status-sync-service"
+    namespace: asia
+    port: 8080
+    image:
+      repository: "babutabhavya/status-sync-service"
+      tag: latest
+      pullPolicy: Always
+  instances:
+    asia:
+      count: 2
+      port: 8080
+      image:
+        repository: "babutabhavya/instance-monitoring"
+        tag: latest
+        pullPolicy: "IfNotPresent"
+    europe:
+      count: 2
+      port: 8080
+      image:
+        repository: "babutabhavya/instance-monitoring"
+        tag: latest
+        pullPolicy: "IfNotPresent"
+    usa:
+      count: 2
+      port: 8080
+      image:
+        repository: "babutabhavya/instance-monitoring"
+        tag: latest
+        pullPolicy: "IfNotPresent"
+
