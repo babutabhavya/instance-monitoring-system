@@ -7,7 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY main.go ./main.go
-COPY database/mongo.go ./database/mongo.go
+COPY database ./database
 
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/main .

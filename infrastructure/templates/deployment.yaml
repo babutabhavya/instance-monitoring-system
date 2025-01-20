@@ -43,6 +43,13 @@ spec:
           imagePullPolicy: {{ .Values.service.statussync.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.statussync.port }}
+          env:
+            - name: ASIA_COUNT
+              value: "{{ .Values.service.instances.asia.count }}"
+            - name: EUROPE_COUNT
+              value: "{{ .Values.service.instances.europe.count }}"
+            - name: USA_COUNT
+              value: "{{ .Values.service.instances.usa.count }}"
 ---
 apiVersion: apps/v1
 kind: StatefulSet

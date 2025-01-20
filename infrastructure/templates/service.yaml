@@ -32,7 +32,6 @@ spec:
 
 ---
 
-{{- $nodePortBase := 30001 }}
 
 {{- range $region, $regionConfig := .Values.service.instances }}
   {{- range $i := until (int $regionConfig.count) }}
@@ -49,8 +48,5 @@ spec:
     - name: nordport
       port: {{ $regionConfig.port }}
       targetPort: {{ $regionConfig.port }}
-      nodePort: {{ $nodePortBase }}
-  type: NodePort
-  {{- $nodePortBase = add $nodePortBase 1 }}
   {{- end }}
 {{- end }}

@@ -109,6 +109,15 @@ func (db *MongoDB) InsertDocument(ctx context.Context, collection *mongo.Collect
 	return nil
 }
 
+func (db *MongoDB) BulkInsert(ctx context.Context, collection *mongo.Collection, documents []interface{}) error {
+	_, err := collection.InsertMany(context.Background(), documents)
+	if err != nil {
+		log.Fatalf("Error inserting documents: %v", err)
+	}
+	fmt.Printf("Successfully inserted %d documents.\n", len(documents))
+	return nil
+}
+
 func (db *MongoDB) FindAll(ctx context.Context, collection *mongo.Collection) ([]interface{}, error) {
 	var results []interface{}
 	cursor, err := collection.Find(ctx, bson.D{})
@@ -149,6 +158,7 @@ func (db *MongoDB) UpdateDocument(ctx context.Context, collection *mongo.Collect
 	log.Printf("Updating document with filter: %+v", filter)
 	result, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
+		log.Printf("Error updating document: %v", err)
 		return nil, err
 	}
 	if result.MatchedCount == 0 {

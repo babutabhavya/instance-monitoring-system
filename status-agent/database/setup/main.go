@@ -2,8 +2,11 @@ package setup
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 	mongo "status-agent/database"
+	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,7 +16,10 @@ type Document struct {
 	Port        int        `bson:"port"`
 	Host        string     `bson:"host"`
 	Status      *string    `bson:"status"`
-	LastChecked *time.Time `bson:"last_checked"`
+	LastUpdated *time.Time `bson:"last_updated"`
+	Name        string     `bson:"name"`
+	Region      string     `bson:"region"`
+	LastActive  *time.Time `bson:"last_active"`
 }
 
 func Setup(db *mongo.MongoDB) {
@@ -42,36 +48,65 @@ func Setup(db *mongo.MongoDB) {
 	}
 
 	collection := db.Client.Database("instances").Collection("status")
-	var documents []interface{}
-	for port := 4001; port <= 4009; port++ {
-		filter := bson.M{"port": port}
-		var existingDoc Document
-		err := collection.FindOne(context.Background(), filter).Decode(&existingDoc)
-		if err == nil {
-			log.Printf("Document with port %d already exists, skipping...\n", port)
-			continue
-		}
+	asiaCount, _ := os.LookupEnv("ASIA_COUNT")
+	europeCount, _ := os.LookupEnv("EUROPE_COUNT")
+	usaCount, _ := os.LookupEnv("USA_COUNT")
 
-		var status *string
-		var lastChecked *time.Time
-
-		doc := Document{
-			Port:        port,
-			Host:        "localhost",
-			Status:      status,
-			LastChecked: lastChecked,
-		}
-
-		documents = append(documents, doc)
+	asiaCountInt, err := strconv.Atoi(asiaCount)
+	if err != nil {
+		log.Printf("Error parsing ASIA_COUNT, using default (2): %v", err)
+		asiaCountInt = 2
 	}
 
-	if len(documents) > 0 {
-		for _, doc := range documents {
-			if err := db.InsertDocument(context.Background(), collection, doc); err != nil {
-				log.Fatalf("Failed to insert document: %v", err)
+	europeCountInt, err := strconv.Atoi(europeCount)
+	if err != nil {
+		log.Printf("Error parsing EUROPE_COUNT, using default (2): %v", err)
+		europeCountInt = 2
+	}
+
+	usaCountInt, err := strconv.Atoi(usaCount)
+	if err != nil {
+		log.Printf("Error parsing USA_COUNT, using default (2): %v", err)
+		usaCountInt = 2
+	}
+
+	regionCounts := map[string]int{
+		"asia":   asiaCountInt,
+		"europe": europeCountInt,
+		"usa":    usaCountInt,
+	}
+
+	var documents []interface{}
+
+	for region, count := range regionCounts {
+		for i := 1; i <= count; i++ {
+			name := fmt.Sprintf("instance-to-be-monitored-%s-%d", region, i)
+			host := fmt.Sprintf("instance-to-be-monitored-%s-%d-service.%s.svc.cluster.local", region, i, region)
+
+			// Define the document structure
+			doc := Document{
+				Port:        8080,
+				Host:        host,
+				Status:      nil,
+				LastUpdated: nil,
+				Name:        name,
+				Region:      region,
+				LastActive:  nil,
+			}
+
+			filter := bson.D{{Key: "host", Value: host}}
+			existingDoc, err := db.FindDocument(context.Background(), collection, filter)
+			if existingDoc != nil || err == nil {
+				log.Printf("Document with port %d already exists, skipping...\n", 8080)
+				continue
+			} else {
+				documents = append(documents, doc)
+
 			}
 		}
-	} else {
-		log.Println("No new documents to insert.")
+	}
+	if len(documents) > 0 {
+		db.BulkInsert(context.Background(), collection, documents)
+
 	}
 }

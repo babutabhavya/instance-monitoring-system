@@ -99,13 +99,20 @@ func handleInstanceActivityResponse(msg *nats.Msg, db *mongo.MongoDB) {
 	filter := bson.D{{Key: "_id", Value: id}}
 	update := bson.D{
 		{Key: "$set", Value: bson.D{
-			{Key: "status", Value: "Inactive"},
-			{Key: "last_updated_at", Value: time.Now()},
+			{Key: "status", Value: message.Status},
+			{Key: "last_updated", Value: time.Now()},
 		}},
 	}
 
-	instance, _ := db.UpdateDocument(context.Background(), collection, filter, update)
-	log.Printf("Instance updated: %+v", instance)
+	if message.Status == "ACTIVE" {
+		update = append(update, bson.E{Key: "$set", Value: bson.D{
+			{Key: "last_active", Value: time.Now()},
+		}})
+	}
+
+	log.Printf("Update instance payload: %+v", update)
+
+	db.UpdateDocument(context.Background(), collection, filter, update)
 }
 
 func main() {
